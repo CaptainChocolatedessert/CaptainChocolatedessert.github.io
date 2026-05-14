@@ -4,7 +4,7 @@
   "manifest_version": 1,
   "action": {
     "title": "Characters",
-    "icon": "/icon.svg",
+    "icon": "https://captainchocolatedessert.github.io/icon.svg",
     "popover": "/index.html",
     "height": 600,
     "width": 600
