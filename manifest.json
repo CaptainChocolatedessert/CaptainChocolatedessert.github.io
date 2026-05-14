@@ -1,7 +1,7 @@
 {
   "name": "Inventory Test",
   "version": "1.0.0",
-  "manifest_version": 1,
+  "manifest_version": 2,
   "action": {
     "title": "Inventory",
     "icon": "/icon.svg",
