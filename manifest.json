@@ -3,7 +3,7 @@
   "version": "0.0.1",
   "manifest_version": 1,
   "action": {
-    "title": "Inventory",
+    "title": "Characters",
     "icon": "/icon.svg",
     "popover": "/index.html",
     "height": 600,
