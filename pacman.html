@@ -450,6 +450,23 @@
     return dx * dx + dy * dy;
   }
 
+  // Ghost-house interior + door, so ghosts can be steered out through the
+  // single door column instead of greedily chasing Pac-Man from inside the box.
+  var HOUSE_BOUNDS = { r0: 12, r1: 15, c0: 11, c1: 16 };
+  function isInHouse(r, c) {
+    return r >= HOUSE_BOUNDS.r0 && r <= HOUSE_BOUNDS.r1 && c >= HOUSE_BOUNDS.c0 && c <= HOUSE_BOUNDS.c1;
+  }
+
+  function bestTowards(opts, tile, targetX, targetY) {
+    var best = opts[0], bestD = Infinity;
+    opts.forEach(function (d) {
+      var nx = tile.c + d.dx, ny = tile.r + d.dy;
+      var dd = dist2(nx, ny, targetX, targetY);
+      if (dd < bestD) { bestD = dd; best = d; }
+    });
+    return best;
+  }
+
   function chooseGhostDir(g, tile) {
     var opts = [];
     for (var name in DIRS) {
@@ -462,6 +479,10 @@
       var rev = reverseDir(g.dir);
       if (canEnter(tile.r, tile.c, rev)) return rev;
       return DIRS.none;
+    }
+
+    if (g.state !== 'eaten' && isInHouse(tile.r, tile.c)) {
+      return bestTowards(opts, tile, GHOST_HOUSE.x, HOUSE_BOUNDS.r0 - 3);
     }
 
     if (g.state === 'frightened') {
@@ -485,13 +506,7 @@
       targetX = pacman.x; targetY = pacman.y;
     }
 
-    var best = opts[0], bestD = Infinity;
-    opts.forEach(function (d) {
-      var nx = tile.c + d.dx, ny = tile.r + d.dy;
-      var dd = dist2(nx, ny, targetX, targetY);
-      if (dd < bestD) { bestD = dd; best = d; }
-    });
-    return best;
+    return bestTowards(opts, tile, targetX, targetY);
   }
 
   function hasOtherOption(g, tile) {
