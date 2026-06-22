@@ -1,0 +1,430 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Neural Network Learns XOR — A Demonstration</title>
+<style>
+  :root {
+    --bg: #0f1419;
+    --panel: #1a2230;
+    --ink: #e6edf3;
+    --muted: #8b98a8;
+    --accent: #4fc3f7;
+    --pos: #66bb6a;
+    --neg: #ef5350;
+    --line: #2a3647;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    background: var(--bg);
+    color: var(--ink);
+    line-height: 1.5;
+  }
+  header {
+    padding: 24px 20px 8px;
+    text-align: center;
+  }
+  header h1 { margin: 0 0 4px; font-size: 1.6rem; }
+  header p { margin: 0; color: var(--muted); font-size: 0.95rem; }
+  .wrap {
+    max-width: 1100px;
+    margin: 0 auto;
+    padding: 16px 20px 60px;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 18px;
+  }
+  @media (max-width: 820px) { .wrap { grid-template-columns: 1fr; } }
+  .panel {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    padding: 16px;
+  }
+  .panel h2 {
+    margin: 0 0 10px;
+    font-size: 1.05rem;
+    color: var(--accent);
+    font-weight: 600;
+  }
+  canvas { width: 100%; display: block; border-radius: 8px; background: #0b0f16; }
+  .controls {
+    grid-column: 1 / -1;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 14px;
+    justify-content: center;
+  }
+  button {
+    background: var(--accent);
+    color: #04222e;
+    border: none;
+    padding: 10px 18px;
+    border-radius: 8px;
+    font-size: 0.95rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: filter 0.15s;
+  }
+  button:hover { filter: brightness(1.1); }
+  button.secondary { background: #2a3647; color: var(--ink); }
+  label.slider { display: flex; flex-direction: column; font-size: 0.8rem; color: var(--muted); gap: 2px; }
+  label.slider input { width: 160px; }
+  .stats { grid-column: 1 / -1; display: flex; flex-wrap: wrap; gap: 24px; justify-content: center; font-variant-numeric: tabular-nums; }
+  .stat { text-align: center; }
+  .stat .num { font-size: 1.5rem; font-weight: 700; color: var(--accent); }
+  .stat .lbl { font-size: 0.75rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.05em; }
+  table { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
+  th, td { padding: 6px 8px; text-align: center; border-bottom: 1px solid var(--line); font-size: 0.9rem; }
+  th { color: var(--muted); font-weight: 500; }
+  .ok { color: var(--pos); }
+  .bad { color: var(--neg); }
+  .note { grid-column: 1 / -1; color: var(--muted); font-size: 0.85rem; text-align: center; max-width: 760px; margin: 0 auto; }
+  code { background: #0b0f16; padding: 1px 5px; border-radius: 4px; color: var(--accent); }
+</style>
+</head>
+<body>
+<header>
+  <h1>A Neural Network Learns XOR</h1>
+  <p>2 inputs &rarr; 2 hidden nodes &rarr; 1 output, trained by backpropagation</p>
+</header>
+
+<div class="wrap">
+
+  <div class="controls">
+    <button id="trainBtn">Start training</button>
+    <button id="stepBtn" class="secondary">Step 1000&times;</button>
+    <button id="resetBtn" class="secondary">Reset weights</button>
+    <label class="slider">
+      Learning rate: <span id="lrVal">0.50</span>
+      <input id="lr" type="range" min="0.05" max="3" step="0.05" value="0.5">
+    </label>
+    <label class="slider">
+      Speed (epochs/frame): <span id="spdVal">50</span>
+      <input id="spd" type="range" min="1" max="500" step="1" value="50">
+    </label>
+  </div>
+
+  <div class="stats">
+    <div class="stat"><div class="num" id="epoch">0</div><div class="lbl">Epoch</div></div>
+    <div class="stat"><div class="num" id="loss">—</div><div class="lbl">Mean&nbsp;Sq.&nbsp;Error</div></div>
+    <div class="stat"><div class="num" id="acc">0 / 4</div><div class="lbl">Correct</div></div>
+  </div>
+
+  <div class="panel">
+    <h2>Decision surface</h2>
+    <canvas id="surface" width="380" height="380"></canvas>
+  </div>
+
+  <div class="panel">
+    <h2>Loss over time</h2>
+    <canvas id="lossChart" width="380" height="180"></canvas>
+    <h2 style="margin-top:14px;">Network &amp; truth table</h2>
+    <canvas id="net" width="380" height="160"></canvas>
+    <table id="truth">
+      <thead><tr><th>A</th><th>B</th><th>Target</th><th>Output</th><th></th></tr></thead>
+      <tbody></tbody>
+    </table>
+  </div>
+
+  <p class="note">
+    The background colour shows what the network predicts for every point in the input
+    plane: <span style="color:var(--neg)">red&nbsp;&asymp;&nbsp;0</span>,
+    <span style="color:var(--pos)">green&nbsp;&asymp;&nbsp;1</span>. The four circles are the
+    XOR training examples. A single straight line can never separate them &mdash; that is why
+    the hidden layer is essential. Watch the surface bend into the curved boundary XOR requires.
+  </p>
+
+</div>
+
+<script>
+"use strict";
+
+/* ============================================================
+   A tiny neural network: 2 inputs, 2 hidden nodes, 1 output.
+   Activation: logistic sigmoid.  Training: online backprop.
+   Everything is written out explicitly so students can read
+   the math rather than a library call.
+   ============================================================ */
+
+// ---- The XOR problem: the thing we want the network to learn ----
+const DATA = [
+  { in: [0, 0], target: 0 },
+  { in: [0, 1], target: 1 },
+  { in: [1, 0], target: 1 },
+  { in: [1, 1], target: 0 },
+];
+
+const sigmoid  = x => 1 / (1 + Math.exp(-x));
+const dsigmoid = y => y * (1 - y);          // derivative in terms of the OUTPUT y
+const rand     = () => Math.random() * 2 - 1; // small random weight in [-1, 1]
+
+// ---- Network state (weights + biases) ----
+let net;
+function initNet() {
+  net = {
+    // hidden layer: 2 neurons, each with 2 input weights + 1 bias
+    w1: [[rand(), rand()], [rand(), rand()]],
+    b1: [rand(), rand()],
+    // output layer: 1 neuron, with 2 weights (from hidden) + 1 bias
+    w2: [rand(), rand()],
+    b2: rand(),
+  };
+}
+
+// ---- Forward pass: compute the prediction for one input ----
+function forward(input) {
+  const h = [0, 0];
+  for (let j = 0; j < 2; j++) {
+    let sum = net.b1[j];
+    for (let i = 0; i < 2; i++) sum += input[i] * net.w1[j][i];
+    h[j] = sigmoid(sum);
+  }
+  let outSum = net.b2;
+  for (let j = 0; j < 2; j++) outSum += h[j] * net.w2[j];
+  const out = sigmoid(outSum);
+  return { h, out };
+}
+
+// ---- One training step on a single example (stochastic gradient descent) ----
+function trainOne(sample, lr) {
+  const { h, out } = forward(sample.in);
+
+  // Output-layer error and gradient
+  const error    = sample.target - out;          // how wrong we are
+  const dOut     = error * dsigmoid(out);         // delta for the output neuron
+
+  // Hidden-layer deltas (backpropagate the output delta through w2)
+  const dHidden = [0, 0];
+  for (let j = 0; j < 2; j++) {
+    dHidden[j] = dOut * net.w2[j] * dsigmoid(h[j]);
+  }
+
+  // Update output weights & bias
+  for (let j = 0; j < 2; j++) net.w2[j] += lr * dOut * h[j];
+  net.b2 += lr * dOut;
+
+  // Update hidden weights & biases
+  for (let j = 0; j < 2; j++) {
+    for (let i = 0; i < 2; i++) net.w1[j][i] += lr * dHidden[j] * sample.in[i];
+    net.b1[j] += lr * dHidden[j];
+  }
+
+  return error * error; // squared error for this example
+}
+
+// ---- One epoch = one pass over all four examples ----
+function trainEpoch(lr) {
+  let sse = 0;
+  for (const s of DATA) sse += trainOne(s, lr);
+  return sse / DATA.length; // mean squared error
+}
+
+/* ============================================================
+   Visualisation
+   ============================================================ */
+
+let epoch = 0;
+let lossHistory = [];
+let running = false;
+let lr = 0.5;
+let speed = 50;
+
+const $ = id => document.getElementById(id);
+const surface  = $("surface").getContext("2d");
+const lossCtx  = $("lossChart").getContext("2d");
+const netCtx   = $("net").getContext("2d");
+const tbody    = $("truth").querySelector("tbody");
+
+// Colour ramp from red (0) through dark (0.5) to green (1)
+function valueColor(v) {
+  const r = Math.round(255 * (1 - v));
+  const g = Math.round(255 * v);
+  return `rgb(${Math.round(r * 0.75)}, ${Math.round(g * 0.75)}, 60)`;
+}
+
+function drawSurface() {
+  const W = 190, H = 190;       // compute at low res, then scale up
+  const img = surface.createImageData(W, H);
+  for (let py = 0; py < H; py++) {
+    for (let px = 0; px < W; px++) {
+      const x = px / (W - 1);
+      const y = 1 - py / (H - 1); // flip so (0,0) is bottom-left
+      const v = forward([x, y]).out;
+      const r = Math.round(255 * (1 - v) * 0.8);
+      const g = Math.round(255 * v * 0.8);
+      const idx = (py * W + px) * 4;
+      img.data[idx] = r;
+      img.data[idx + 1] = g;
+      img.data[idx + 2] = 70;
+      img.data[idx + 3] = 255;
+    }
+  }
+  // paint scaled image
+  const tmp = document.createElement("canvas");
+  tmp.width = W; tmp.height = H;
+  tmp.getContext("2d").putImageData(img, 0, 0);
+  surface.imageSmoothingEnabled = true;
+  surface.drawImage(tmp, 0, 0, 380, 380);
+
+  // plot the four training points
+  for (const s of DATA) {
+    const cx = s.in[0] * 360 + 10;
+    const cy = (1 - s.in[1]) * 360 + 10;
+    surface.beginPath();
+    surface.arc(cx, cy, 13, 0, Math.PI * 2);
+    surface.fillStyle = s.target === 1 ? "#aaffaa" : "#ffaaaa";
+    surface.fill();
+    surface.lineWidth = 3;
+    surface.strokeStyle = "#0b0f16";
+    surface.stroke();
+    surface.fillStyle = "#0b0f16";
+    surface.font = "bold 13px sans-serif";
+    surface.textAlign = "center";
+    surface.textBaseline = "middle";
+    surface.fillText(s.target, cx, cy);
+  }
+}
+
+function drawLoss() {
+  const w = 380, h = 180;
+  lossCtx.clearRect(0, 0, w, h);
+  lossCtx.fillStyle = "#0b0f16";
+  lossCtx.fillRect(0, 0, w, h);
+  if (lossHistory.length < 2) return;
+  const maxL = 0.3; // typical starting MSE region
+  lossCtx.strokeStyle = "#2a3647";
+  lossCtx.lineWidth = 1;
+  for (let i = 0; i <= 3; i++) {
+    const yy = (i / 3) * h;
+    lossCtx.beginPath(); lossCtx.moveTo(0, yy); lossCtx.lineTo(w, yy); lossCtx.stroke();
+  }
+  lossCtx.strokeStyle = "#4fc3f7";
+  lossCtx.lineWidth = 2;
+  lossCtx.beginPath();
+  const n = lossHistory.length;
+  for (let i = 0; i < n; i++) {
+    const x = (i / (n - 1)) * w;
+    const y = h - Math.min(lossHistory[i] / maxL, 1) * h;
+    i === 0 ? lossCtx.moveTo(x, y) : lossCtx.lineTo(x, y);
+  }
+  lossCtx.stroke();
+}
+
+function drawNet() {
+  const w = 380, h = 160;
+  netCtx.clearRect(0, 0, w, h);
+  // node positions
+  const layers = [
+    [{x:50,y:50,l:"A"},{x:50,y:110,l:"B"}],
+    [{x:190,y:50,l:"h1"},{x:190,y:110,l:"h2"}],
+    [{x:330,y:80,l:"out"}],
+  ];
+  // edges with weight-based thickness/colour
+  function edge(a, b, weight) {
+    netCtx.beginPath();
+    netCtx.moveTo(a.x, a.y);
+    netCtx.lineTo(b.x, b.y);
+    netCtx.lineWidth = Math.min(Math.abs(weight) * 1.5, 6) + 0.5;
+    netCtx.strokeStyle = weight >= 0 ? "rgba(102,187,106,0.8)" : "rgba(239,83,80,0.8)";
+    netCtx.stroke();
+  }
+  for (let j = 0; j < 2; j++)
+    for (let i = 0; i < 2; i++)
+      edge(layers[0][i], layers[1][j], net.w1[j][i]);
+  for (let j = 0; j < 2; j++)
+    edge(layers[1][j], layers[2][0], net.w2[j]);
+
+  for (const layer of layers) for (const node of layer) {
+    netCtx.beginPath();
+    netCtx.arc(node.x, node.y, 18, 0, Math.PI * 2);
+    netCtx.fillStyle = "#1a2230";
+    netCtx.fill();
+    netCtx.lineWidth = 2;
+    netCtx.strokeStyle = "#4fc3f7";
+    netCtx.stroke();
+    netCtx.fillStyle = "#e6edf3";
+    netCtx.font = "12px sans-serif";
+    netCtx.textAlign = "center";
+    netCtx.textBaseline = "middle";
+    netCtx.fillText(node.l, node.x, node.y);
+  }
+}
+
+function updateTable() {
+  let correct = 0;
+  tbody.innerHTML = "";
+  for (const s of DATA) {
+    const out = forward(s.in).out;
+    const right = Math.round(out) === s.target;
+    if (right) correct++;
+    const tr = document.createElement("tr");
+    tr.innerHTML =
+      `<td>${s.in[0]}</td><td>${s.in[1]}</td><td>${s.target}</td>` +
+      `<td>${out.toFixed(3)}</td>` +
+      `<td class="${right ? "ok" : "bad"}">${right ? "✓" : "✗"}</td>`;
+    tbody.appendChild(tr);
+  }
+  $("acc").textContent = `${correct} / 4`;
+}
+
+function redraw() {
+  drawSurface();
+  drawLoss();
+  drawNet();
+  updateTable();
+  $("epoch").textContent = epoch;
+  $("loss").textContent = lossHistory.length ? lossHistory[lossHistory.length - 1].toFixed(4) : "—";
+}
+
+// ---- Animation loop ----
+function loop() {
+  if (!running) return;
+  let mse = 0;
+  for (let k = 0; k < speed; k++) {
+    mse = trainEpoch(lr);
+    epoch++;
+  }
+  // keep loss history at a manageable length
+  lossHistory.push(mse);
+  if (lossHistory.length > 380) lossHistory.shift();
+  redraw();
+  requestAnimationFrame(loop);
+}
+
+function reset() {
+  running = false;
+  $("trainBtn").textContent = "Start training";
+  initNet();
+  epoch = 0;
+  lossHistory = [];
+  redraw();
+}
+
+// ---- Wire up the controls ----
+$("trainBtn").addEventListener("click", () => {
+  running = !running;
+  $("trainBtn").textContent = running ? "Pause" : "Resume";
+  if (running) loop();
+});
+$("stepBtn").addEventListener("click", () => {
+  let mse = 0;
+  for (let k = 0; k < 1000; k++) { mse = trainEpoch(lr); epoch++; }
+  lossHistory.push(mse);
+  if (lossHistory.length > 380) lossHistory.shift();
+  redraw();
+});
+$("resetBtn").addEventListener("click", reset);
+$("lr").addEventListener("input", e => { lr = +e.target.value; $("lrVal").textContent = lr.toFixed(2); });
+$("spd").addEventListener("input", e => { speed = +e.target.value; $("spdVal").textContent = speed; });
+
+// ---- Go ----
+initNet();
+redraw();
+</script>
+</body>
+</html>
