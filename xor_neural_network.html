@@ -90,7 +90,7 @@
 <body>
 <header>
   <h1>A Neural Network Learns XOR</h1>
-  <p>2 inputs &rarr; 2 hidden nodes &rarr; 1 output, trained by backpropagation</p>
+  <p>2 inputs &rarr; 3 hidden nodes &rarr; 1 output, trained by backpropagation</p>
 </header>
 
 <div class="wrap">
@@ -163,29 +163,33 @@ const sigmoid  = x => 1 / (1 + Math.exp(-x));
 const dsigmoid = y => y * (1 - y);          // derivative in terms of the OUTPUT y
 const rand     = () => Math.random() * 2 - 1; // small random weight in [-1, 1]
 
+// Number of neurons in the hidden layer.  XOR only needs 2, but extra
+// hidden nodes give the network more straight-line separators to work with.
+const HIDDEN = 3;
+
 // ---- Network state (weights + biases) ----
 let net;
 function initNet() {
   net = {
-    // hidden layer: 2 neurons, each with 2 input weights + 1 bias
-    w1: [[rand(), rand()], [rand(), rand()]],
-    b1: [rand(), rand()],
-    // output layer: 1 neuron, with 2 weights (from hidden) + 1 bias
-    w2: [rand(), rand()],
+    // hidden layer: HIDDEN neurons, each with 2 input weights + 1 bias
+    w1: Array.from({ length: HIDDEN }, () => [rand(), rand()]),
+    b1: Array.from({ length: HIDDEN }, () => rand()),
+    // output layer: 1 neuron, with HIDDEN weights (from hidden) + 1 bias
+    w2: Array.from({ length: HIDDEN }, () => rand()),
     b2: rand(),
   };
 }
 
 // ---- Forward pass: compute the prediction for one input ----
 function forward(input) {
-  const h = [0, 0];
-  for (let j = 0; j < 2; j++) {
+  const h = new Array(HIDDEN);
+  for (let j = 0; j < HIDDEN; j++) {
     let sum = net.b1[j];
     for (let i = 0; i < 2; i++) sum += input[i] * net.w1[j][i];
     h[j] = sigmoid(sum);
   }
   let outSum = net.b2;
-  for (let j = 0; j < 2; j++) outSum += h[j] * net.w2[j];
+  for (let j = 0; j < HIDDEN; j++) outSum += h[j] * net.w2[j];
   const out = sigmoid(outSum);
   return { h, out };
 }
@@ -199,17 +203,17 @@ function trainOne(sample, lr) {
   const dOut     = error * dsigmoid(out);         // delta for the output neuron
 
   // Hidden-layer deltas (backpropagate the output delta through w2)
-  const dHidden = [0, 0];
-  for (let j = 0; j < 2; j++) {
+  const dHidden = new Array(HIDDEN);
+  for (let j = 0; j < HIDDEN; j++) {
     dHidden[j] = dOut * net.w2[j] * dsigmoid(h[j]);
   }
 
   // Update output weights & bias
-  for (let j = 0; j < 2; j++) net.w2[j] += lr * dOut * h[j];
+  for (let j = 0; j < HIDDEN; j++) net.w2[j] += lr * dOut * h[j];
   net.b2 += lr * dOut;
 
   // Update hidden weights & biases
-  for (let j = 0; j < 2; j++) {
+  for (let j = 0; j < HIDDEN; j++) {
     for (let i = 0; i < 2; i++) net.w1[j][i] += lr * dHidden[j] * sample.in[i];
     net.b1[j] += lr * dHidden[j];
   }
@@ -278,8 +282,8 @@ function drawSurface() {
   // exactly 0.5 along the straight line w0*x + w1*y + b = 0, which splits
   // the plane into the region it fires on (>0.5) and the region it doesn't.
   // Draw that line for each of the two hidden nodes.
-  const hiddenColors = ["#ffd54f", "#ba68c8"];
-  for (let j = 0; j < 2; j++) {
+  const hiddenColors = ["#ffd54f", "#ba68c8", "#4fc3f7", "#ff8a65", "#aed581"];
+  for (let j = 0; j < HIDDEN; j++) {
     const w0 = net.w1[j][0], w1 = net.w1[j][1], b = net.b1[j];
     // find where the line crosses the edges of the unit square
     const pts = [];
@@ -359,11 +363,12 @@ function drawLoss() {
 function drawNet() {
   const w = 380, h = 160;
   netCtx.clearRect(0, 0, w, h);
-  // node positions
+  // node positions — hidden nodes are spread evenly down the middle column
+  const colY = (n, i) => h * (i + 1) / (n + 1);
   const layers = [
-    [{x:50,y:50,l:"A"},{x:50,y:110,l:"B"}],
-    [{x:190,y:50,l:"h1"},{x:190,y:110,l:"h2"}],
-    [{x:330,y:80,l:"out"}],
+    [{x:50, y:50, l:"A"}, {x:50, y:110, l:"B"}],
+    Array.from({ length: HIDDEN }, (_, j) => ({ x:190, y:colY(HIDDEN, j), l:"h" + (j + 1) })),
+    [{x:330, y:80, l:"out"}],
   ];
   // edges with weight-based thickness/colour
   function edge(a, b, weight) {
@@ -374,10 +379,10 @@ function drawNet() {
     netCtx.strokeStyle = weight >= 0 ? "rgba(102,187,106,0.8)" : "rgba(239,83,80,0.8)";
     netCtx.stroke();
   }
-  for (let j = 0; j < 2; j++)
+  for (let j = 0; j < HIDDEN; j++)
     for (let i = 0; i < 2; i++)
       edge(layers[0][i], layers[1][j], net.w1[j][i]);
-  for (let j = 0; j < 2; j++)
+  for (let j = 0; j < HIDDEN; j++)
     edge(layers[1][j], layers[2][0], net.w2[j]);
 
   for (const layer of layers) for (const node of layer) {
