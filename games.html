@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+  <title>Games</title>
+
+  <style>
+    html, body {
+      margin: 0;
+      padding: 0;
+      min-height: 100%;
+
+      background: #cdbb8c;
+      font-family: sans-serif;
+      color: #3d2f20;
+    }
+
+    .topbar {
+      height: 42px;
+
+      display: flex;
+      align-items: center;
+
+      padding: 0 12px;
+
+      background: #5a4630;
+      color: #f4ead0;
+
+      border-bottom: 2px solid #3d2f20;
+
+      box-sizing: border-box;
+    }
+
+    .title {
+      font-weight: bold;
+      letter-spacing: 0.5px;
+    }
+
+    .game-list {
+      max-width: 480px;
+      margin: 32px auto;
+      padding: 0 16px;
+
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .game-link {
+      display: block;
+
+      padding: 16px;
+
+      background: #5a4630;
+      color: #f4ead0;
+      text-decoration: none;
+      font-weight: bold;
+      letter-spacing: 0.5px;
+      text-align: center;
+
+      border: 2px solid #3d2f20;
+      border-radius: 6px;
+    }
+
+    .game-link:hover {
+      background: #6b5538;
+    }
+  </style>
+</head>
+
+<body>
+
+  <div class="topbar">
+    <div class="title">Games</div>
+  </div>
+
+  <div class="game-list">
+    <a class="game-link" href="block_breaker.html">Block Breaker</a>
+    <a class="game-link" href="pacman.html">Pac-Man</a>
+    <a class="game-link" href="platformer.html">Penguin Platformer</a>
+    <a class="game-link" href="snake.html">Snake</a>
+    <a class="game-link" href="tower_defense.html">Jungle Defense</a>
+  </div>
+
+</body>
+</html>
