@@ -271,6 +271,47 @@ function drawSurface() {
   surface.imageSmoothingEnabled = true;
   surface.drawImage(tmp, 0, 0, 380, 380);
 
+  // map a data-space point (x,y) in [0,1]^2 to canvas pixels
+  const toCanvas = (x, y) => [x * 360 + 10, (1 - y) * 360 + 10];
+
+  // Each hidden node j computes sigmoid(w0*x + w1*y + b).  Its output is
+  // exactly 0.5 along the straight line w0*x + w1*y + b = 0, which splits
+  // the plane into the region it fires on (>0.5) and the region it doesn't.
+  // Draw that line for each of the two hidden nodes.
+  const hiddenColors = ["#ffd54f", "#ba68c8"];
+  for (let j = 0; j < 2; j++) {
+    const w0 = net.w1[j][0], w1 = net.w1[j][1], b = net.b1[j];
+    // find where the line crosses the edges of the unit square
+    const pts = [];
+    const addIf = (x, y) => {
+      if (x >= -1e-9 && x <= 1 + 1e-9 && y >= -1e-9 && y <= 1 + 1e-9) pts.push([x, y]);
+    };
+    if (Math.abs(w1) > 1e-9) {            // y for x = 0 and x = 1
+      addIf(0, -(w0 * 0 + b) / w1);
+      addIf(1, -(w0 * 1 + b) / w1);
+    }
+    if (Math.abs(w0) > 1e-9) {            // x for y = 0 and y = 1
+      addIf(-(w1 * 0 + b) / w0, 0);
+      addIf(-(w1 * 1 + b) / w0, 1);
+    }
+    if (pts.length >= 2) {
+      const [ax, ay] = toCanvas(pts[0][0], pts[0][1]);
+      const [bx, by] = toCanvas(pts[1][0], pts[1][1]);
+      surface.beginPath();
+      surface.moveTo(ax, ay);
+      surface.lineTo(bx, by);
+      surface.lineWidth = 3;
+      surface.strokeStyle = hiddenColors[j];
+      surface.stroke();
+      // small label near one end
+      surface.fillStyle = hiddenColors[j];
+      surface.font = "bold 12px sans-serif";
+      surface.textAlign = "center";
+      surface.textBaseline = "middle";
+      surface.fillText("h" + (j + 1), bx, by);
+    }
+  }
+
   // plot the four training points
   for (const s of DATA) {
     const cx = s.in[0] * 360 + 10;
